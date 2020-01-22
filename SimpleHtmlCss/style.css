@@ -1,0 +1,8 @@
+div#post {
+  width: 500;
+  height: 210;
+}
+.chart rect {
+  stroke: white;
+  fill: steelblue;
+}
