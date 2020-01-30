@@ -2,6 +2,19 @@ import { Component, OnInit } from "@angular/core";
 import * as d3 from "d3";
 import * as $ from "jquery";
 import { HttpClient } from "@angular/common/http";
+import { zoomIdentity } from "d3";
+
+let xAxisGroup;
+function getFullDate(date: Date) {
+  const mm = date.getMonth() + 1; // getMonth() is zero-based
+  const dd = date.getDate();
+
+  return [
+    (mm > 9 ? "" : "0") + mm,
+    (dd > 9 ? "" : "0") + dd,
+    date.getFullYear()
+  ].join("/");
+}
 
 @Component({
   selector: "app-bar-chart2",
@@ -16,9 +29,7 @@ export class BarChart2Component implements OnInit {
   xAxis: any;
   yAxis: any;
   idList = 1;
-  color = d3.scaleOrdinal(d3.schemeCategory10);
   mainData = null;
-  line: any;
   settings = {
     targets: [],
     detail: {
@@ -41,9 +52,6 @@ export class BarChart2Component implements OnInit {
 
     if (data[0].metric.WIDGET_SETTINGS != "") {
       const wid = JSON.parse(data[0].metric.WIDGET_SETTINGS);
-      if (wid != null && typeof wid.line != "undefined") {
-        $.extend(this.settings, wid.line);
-      }
       if (wid != null) {
         $.extend(this.settings, wid);
       }
@@ -51,16 +59,6 @@ export class BarChart2Component implements OnInit {
 
     this.mainData = data;
     const svg = d3.select("svg");
-
-    d3.select("#area")
-      .insert("div", "svg")
-      .html(
-        data[0].metric.AREA_NAME +
-          "<BR>" +
-          data[0].metric.IND_NAME +
-          "<BR>" +
-          data[0].metric.NAME
-      );
 
     const limits = { maxY: null, minY: null, maxX: null, minX: null };
     const padding = { top: 20, bottom: 150, left: 100, right: 20 };
@@ -72,18 +70,10 @@ export class BarChart2Component implements OnInit {
     const canvasWidth = width - padding.left - padding.right;
 
     data.forEach((e, i) => {
-      const eMaxY = d3.max(e.data, (d: any) => {
-        return +d.VALUE_NUMERIC;
-      });
-      const eMinY = d3.min(e.data, (d: any) => {
-        return +d.VALUE_NUMERIC;
-      });
-      const eMaxX = d3.max(e.data, (d: any) => {
-        return new Date(d.DATA_DATE);
-      });
-      const eMinX = d3.min(e.data, (d: any) => {
-        return new Date(d.DATA_DATE);
-      });
+      const eMaxY = d3.max(e.data, (d: any) => +d.VALUE_NUMERIC);
+      const eMinY = d3.min(e.data, (d: any) => +d.VALUE_NUMERIC);
+      const eMaxX = d3.max(e.data, (d: any) => new Date(d.DATA_DATE));
+      const eMinX = d3.min(e.data, (d: any) => new Date(d.DATA_DATE));
 
       if (limits.maxX == null) {
         limits.maxX = eMaxX;
@@ -118,15 +108,6 @@ export class BarChart2Component implements OnInit {
       }
     });
 
-    this.settings.targets.forEach(d => {
-      if (limits.maxY < d.value) {
-        limits.maxY = d.value;
-      }
-      if (limits.minY > d.value) {
-        limits.minY = d.value;
-      }
-    });
-
     const canvas = svg
       .append("g")
       .attr("id", "canvas")
@@ -138,37 +119,21 @@ export class BarChart2Component implements OnInit {
       .scaleTime()
       .domain([limits.minX, limits.maxX])
       .range([0, +canvas.attr("width")]);
+
     this.y = d3
       .scaleLinear()
       .domain([limits.maxY * 1.1, limits.minY - limits.minY * 0.1])
       .range([0, +canvas.attr("height")]);
 
-    this.line = d3
-      .line()
-      .x((d: any) => {
-        return this.x(new Date(d.DATA_DATE));
-      })
-      .y((d: any) => {
-        return this.y(+d.VALUE_NUMERIC);
-      });
-
     const zoomed = () => {
       this.gX.call(this.xAxis.scale(d3.event.transform.rescaleX(this.x)));
       const new_x = d3.event.transform.rescaleX(this.x);
 
-      if (this.settings.detail.type == "line") {
-        this.line.x((d: any) => {
-          return new_x(new Date(d.DATA_DATE));
-        });
-        d3.select("#canvas")
-          .selectAll("path.line")
-          .data(this.mainData)
-          .attr("d", (d: any) => {
-            return this.line(d.data);
-          });
-      } else if (this.settings.detail.type == "bar") {
+      if (this.settings.detail.type == "bar") {
         this.barWidth =
-          new_x(new Date("2016-01-02")) - new_x(new Date("2016-01-01"));
+          new_x(new Date("2016-01-01 23:00")) -
+          new_x(new Date("2016-01-01 15:00"));
+
         d3.select("#canvas")
           .selectAll("rect.bar")
           .data(this.mainData[0].data)
@@ -184,25 +149,6 @@ export class BarChart2Component implements OnInit {
     this.xAxis = d3.axisBottom(this.x);
     this.yAxis = d3.axisLeft(this.y);
 
-    canvas
-      .selectAll(".targets")
-      .data(this.settings.targets)
-      .enter()
-      .append("line")
-      .classed("targets", true)
-      .style("stroke", (d: any) => {
-        return d.color;
-      })
-      .style("stroke-width", 1)
-      .attr("x1", this.x(limits.minX))
-      .attr("x2", this.x(limits.maxX))
-      .attr("y1", d => {
-        return this.y(+d.value);
-      })
-      .attr("y2", d => {
-        return this.y(+d.value);
-      });
-
     const clip = canvas
       .append("clipPath")
       .attr("id", "clip")
@@ -216,38 +162,40 @@ export class BarChart2Component implements OnInit {
       .attr("class", "axis axis--x")
       .call(this.xAxis);
 
+    xAxisGroup = this.gX;
+
     this.gY = canvas
       .append("g")
       .attr("class", "axis axis--y")
       .call(this.yAxis);
 
-    d3.selectAll(".axis--y > g.tick > line")
-      .attr("x2", canvasWidth)
-      .style("stroke", "lightgrey");
+    const changeColor = function(element) {
+      console.log(element);
 
-    if (this.settings.detail.type == "line") {
-      const lines = canvas
-        .selectAll("path.line")
-        .data(data)
-        .enter()
-        .append("path")
-        .attr("clip-path", "url(#clip)")
-        .classed("line", true)
-        .style("stroke", (d: any) => {
-          return this.color(d.metric.METRIC_ID);
-        })
-        .attr("d", (d: any) => {
-          return this.line(d.data);
-        });
-    } else if (this.settings.detail.type == "bar") {
+      // reset the selections
+      d3.selectAll("rect.bar").style("fill", "steelblue");
+      d3.selectAll("text").style("fill", "black");
+
+      xAxisGroup.selectAll(".tick").each(function(d) {
+        if (getFullDate(d) === element.DATA_DATE) {
+          d3.select(this)
+            .selectAll("text")
+            .style("fill", "red");
+        }
+      });
+
+      d3.select(this).style("fill", "red");
+    };
+
+    if (this.settings.detail.type == "bar") {
       const barWidth =
-        this.x(new Date("2016-01-02")) - this.x(new Date("2016-01-01"));
+        this.x(new Date("2016-01-01 23:00")) -
+        this.x(new Date("2016-01-01 15:00"));
       const barLines = canvas
         .selectAll("rect.bar")
         .data(data[0].data)
         .enter()
         .append("rect")
-        .on("click", this.changeColor)
         .attr("class", "bar")
         .attr("clip-path", "url(#clip)")
         .attr("x", (d: any) => {
@@ -262,7 +210,9 @@ export class BarChart2Component implements OnInit {
         })
         .style("fill", "steelblue")
         .style("stroke", "blue")
-        .style("stroke-width", "1px");
+        .style("stroke-width", "1px")
+        .on("click", changeColor);
+      // .call(zoom.transform, zoomIdentity.scale(2.2));
     }
 
     canvas
@@ -276,12 +226,5 @@ export class BarChart2Component implements OnInit {
       .text(data[0].metric.Y_AXIS_NAME);
 
     svg.call(zoom);
-  }
-
-  changeColor(element) {
-    console.log(element);
-    d3.selectAll("rect.bar").style("fill", "steelblue");
-    d3.select(this).style("fill", "red");
-    console.log("click event registered===");
   }
 }
