@@ -1,0 +1,23 @@
+path.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.bar rect {
+  fill: steelblue;
+}
+
+.bar text {
+  fill: #fff;
+  font: 10px sans-serif;
+}
+line.goal {
+  stroke: green;
+  stroke-width: 1px;
+}
+line {
+  stroke-width: 1px;
+}

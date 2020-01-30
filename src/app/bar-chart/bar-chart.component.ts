@@ -116,6 +116,6 @@ export class BarChartComponent implements OnInit, OnChanges {
   changeColor(element) {
     // console.log(element);
     // d3.select(this).style("fill", "magenta");
-    console.log("click event registered===");
+    // console.log("click event registered===");
   }
 }

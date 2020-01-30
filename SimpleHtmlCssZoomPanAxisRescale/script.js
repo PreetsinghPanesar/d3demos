@@ -35,14 +35,14 @@ SimpleGraph = function (elemid, options) {
     .range([0, this.size.height])
     .nice();
 
-  this.line = d3.svg
-    .line()
-    .x(function (d, i) {
-      return this.x(this.points[i].x);
-    })
-    .y(function (d, i) {
-      return this.y(this.points[i].y);
-    });
+  // this.line = d3.svg
+  //   .line()
+  //   .x(function (d, i) {
+  //     return this.x(this.points[i].x);
+  //   })
+  //   .y(function (d, i) {
+  //     return this.y(this.points[i].y);
+  //   });
 
   var xrange = this.options.xmax - this.options.xmin,
     yrange2 = (this.options.ymax - this.options.ymin) / 2,
@@ -74,17 +74,17 @@ SimpleGraph = function (elemid, options) {
     .style("fill", "#EEEEEE")
     .attr("pointer-events", "all")
 
-  this.vis
-    .append("svg")
-    .attr("top", 0)
-    .attr("left", 0)
-    .attr("width", this.size.width)
-    .attr("height", this.size.height)
-    .attr("viewBox", "0 0 " + this.size.width + " " + this.size.height)
-    .attr("class", "line")
-    .append("path")
-    .attr("class", "line")
-    .attr("d", this.line(this.points));
+  // this.vis
+  //   .append("svg")
+  //   .attr("top", 0)
+  //   .attr("left", 0)
+  //   .attr("width", this.size.width)
+  //   .attr("height", this.size.height)
+  //   .attr("viewBox", "0 0 " + this.size.width + " " + this.size.height)
+  //   .attr("class", "line")
+  //   .append("path")
+  //   .attr("class", "line")
+  //   .attr("d", this.line(this.points));
 
   this.redraw()();
 };
@@ -95,7 +95,20 @@ SimpleGraph = function (elemid, options) {
 
 SimpleGraph.prototype.update = function () {
   var self = this;
-  var lines = this.vis.select("path").attr("d", this.line(this.points));
+  // var lines = this.vis.select("path").attr("d", this.line(this.points));
+  this.vis.selectAll(".bar")
+    .data([])
+    .exit().remove();
+  var rect = this.vis.selectAll(".bar")
+    .data(this.points)
+    .enter()
+    .append("rect")
+    .attr("class", "bar")
+    .attr("x", d => self.x(d.x))
+    .attr("y", d => self.y(d.y))
+    .attr("width", 10)
+    .attr("height", d => this.size.height - self.y(d.y))
+    .style("fill", "steelblue")
 };
 
 SimpleGraph.prototype.redraw = function () {
@@ -127,11 +140,11 @@ SimpleGraph.prototype.redraw = function () {
       .attr("class", "x")
       .attr("transform", tx);
 
-    gxe
-      .append("line")
-      .attr("stroke", stroke)
-      .attr("y1", 0)
-      .attr("y2", self.size.height);
+    // gxe
+    //   .append("line")
+    //   .attr("stroke", stroke)
+    //   .attr("y1", 0)
+    //   .attr("y2", self.size.height);
 
     gxe
       .append("text")
@@ -168,7 +181,7 @@ SimpleGraph.prototype.redraw = function () {
     gye
       .append("line")
       .attr("stroke", stroke)
-      .attr("x1", 0)
+      .attr("x1", 10)
       .attr("x2", self.size.width);
 
     gye
