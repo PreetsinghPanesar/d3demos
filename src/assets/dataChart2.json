@@ -4,7 +4,7 @@
       {
         "DATAPOINT_ID": 10062,
         "METRIC_ID": 1,
-        "VALUE_NUMERIC": 0,
+        "VALUE_NUMERIC": 500,
         "VALUE_TEXT": null,
         "VALUE_CATEGORY": null,
         "DATA_DTE": {

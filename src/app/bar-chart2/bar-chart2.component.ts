@@ -1,9 +1,8 @@
 import { Component, OnInit } from "@angular/core";
 import * as d3 from "d3";
-import * as $ from "jquery";
 import { HttpClient } from "@angular/common/http";
-import { zoomIdentity } from "d3";
 
+// Global methods and properties
 let xAxisGroup;
 function getFullDate(date: Date) {
   const mm = date.getMonth() + 1; // getMonth() is zero-based
@@ -28,16 +27,12 @@ export class BarChart2Component implements OnInit {
   gY: any;
   xAxis: any;
   yAxis: any;
-  idList = 1;
   mainData = null;
-  settings = {
-    targets: [],
-    detail: {
-      type: "line"
-    }
-  };
   data: any;
   barWidth: any;
+  SCALE = 2.5;
+  NO_OF_X_TICKS = 10;
+  NO_OF_Y_TICKS = 5;
 
   constructor(private http: HttpClient) {
     this.http.get<any>("./assets/dataChart2.json").subscribe(data => {
@@ -50,18 +45,11 @@ export class BarChart2Component implements OnInit {
   init(incomingData: any) {
     const data = incomingData;
 
-    if (data[0].metric.WIDGET_SETTINGS != "") {
-      const wid = JSON.parse(data[0].metric.WIDGET_SETTINGS);
-      if (wid != null) {
-        $.extend(this.settings, wid);
-      }
-    }
-
     this.mainData = data;
     const svg = d3.select("svg");
 
     const limits = { maxY: null, minY: null, maxX: null, minX: null };
-    const padding = { top: 20, bottom: 150, left: 100, right: 20 };
+    const padding = { top: 20, bottom: 150, left: 100, right: 100 };
 
     const width = +svg.attr("width");
     const height = +svg.attr("height");
@@ -129,25 +117,29 @@ export class BarChart2Component implements OnInit {
       this.gX.call(this.xAxis.scale(d3.event.transform.rescaleX(this.x)));
       const new_x = d3.event.transform.rescaleX(this.x);
 
-      if (this.settings.detail.type == "bar") {
-        this.barWidth =
-          new_x(new Date("2016-01-01 23:00")) -
-          new_x(new Date("2016-01-01 15:00"));
+      this.barWidth =
+        new_x(new Date("2016-01-01 23:00")) -
+        new_x(new Date("2016-01-01 15:00"));
 
-        d3.select("#canvas")
-          .selectAll("rect.bar")
-          .data(this.mainData[0].data)
-          .attr("x", (d: any) => {
-            return new_x(new Date(d.DATA_DATE)) - this.barWidth * 0.5;
-          })
-          .attr("width", this.barWidth);
-      }
+      d3.select("#canvas")
+        .selectAll("rect.bar")
+        .data(this.mainData[0].data)
+        .attr("x", (d: any) => {
+          return new_x(new Date(d.DATA_DATE)) - this.barWidth * 0.5;
+        })
+        .attr("width", this.barWidth);
     };
 
-    const zoom = d3.zoom().on("zoom", zoomed);
+    const zoom = d3
+      .zoom()
+      .on("zoom", zoomed)
+      .scaleExtent([this.SCALE, this.SCALE]);
 
-    this.xAxis = d3.axisBottom(this.x);
-    this.yAxis = d3.axisLeft(this.y);
+    this.xAxis = d3
+      .axisBottom(this.x)
+      .ticks(this.NO_OF_X_TICKS)
+      .tickFormat(d3.timeFormat("%d"));
+    this.yAxis = d3.axisLeft(this.y).ticks(this.NO_OF_Y_TICKS);
 
     const clip = canvas
       .append("clipPath")
@@ -158,73 +150,77 @@ export class BarChart2Component implements OnInit {
 
     this.gX = canvas
       .append("g")
-      .attr("transform", "translate(0," + +canvas.attr("height") + ")")
+      .attr("transform", `translate(0, ${+canvas.attr("height") + 10})`)
       .attr("class", "axis axis--x")
-      .call(this.xAxis);
+      .call(this.xAxis)
+      .style("font-size", "14px")
+      .attr("stroke-width", 0);
 
     xAxisGroup = this.gX;
 
     this.gY = canvas
       .append("g")
       .attr("class", "axis axis--y")
-      .call(this.yAxis);
+      .attr("stroke-width", 0)
+      .call(this.yAxis)
+      .style("font-size", "14px");
 
     const changeColor = function(element) {
-      console.log(element);
+      // reset the previous selections
+      d3.selectAll("rect.bar").style("fill", "#74B1A1");
+      d3.selectAll("text")
+        .style("fill", "black")
+        .style("font-size", "14px");
+      d3.selectAll("circle").remove();
 
-      // reset the selections
-      d3.selectAll("rect.bar").style("fill", "steelblue");
-      d3.selectAll("text").style("fill", "black");
-
+      d3.select(this).style("fill", "#CE407D");
       xAxisGroup.selectAll(".tick").each(function(d) {
         if (getFullDate(d) === element.DATA_DATE) {
+          // increase font size
           d3.select(this)
             .selectAll("text")
-            .style("fill", "red");
+            .style("fill", "#FFF")
+            .style("font-size", "16px");
+
+          // add circle in the background
+          d3.select(this)
+            .insert("circle", ":first-child")
+            .attr("r", 13)
+            .style("fill", "#CE407D")
+            .attr("transform", "translate(0, 14)");
         }
       });
-
-      d3.select(this).style("fill", "red");
     };
 
-    if (this.settings.detail.type == "bar") {
-      const barWidth =
-        this.x(new Date("2016-01-01 23:00")) -
-        this.x(new Date("2016-01-01 15:00"));
-      const barLines = canvas
-        .selectAll("rect.bar")
-        .data(data[0].data)
-        .enter()
-        .append("rect")
-        .attr("class", "bar")
-        .attr("clip-path", "url(#clip)")
-        .attr("x", (d: any) => {
-          return this.x(new Date(d.DATA_DATE)) - barWidth * 0.5;
-        })
-        .attr("width", barWidth)
-        .attr("height", (d: any) => {
-          return canvasHeight - this.y(d.VALUE_NUMERIC);
-        })
-        .attr("y", (d: any) => {
-          return this.y(d.VALUE_NUMERIC);
-        })
-        .style("fill", "steelblue")
-        .style("stroke", "blue")
-        .style("stroke-width", "1px")
-        .on("click", changeColor);
-      // .call(zoom.transform, zoomIdentity.scale(2.2));
-    }
+    const barWidth =
+      this.x(new Date("2016-01-01 23:00")) -
+      this.x(new Date("2016-01-01 15:00"));
 
-    canvas
-      .append("g")
-      .attr(
-        "transform",
-        "translate(" + -40 + "," + +canvas.attr("height") / 2 + ") rotate(270)"
-      )
-      .append("text")
-      .attr("text-anchor", "middle")
-      .text(data[0].metric.Y_AXIS_NAME);
+    const barLines = canvas
+      .selectAll("rect.bar")
+      .data(data[0].data)
+      .enter()
+      .append("rect")
+      .attr("class", "bar")
+      .attr("clip-path", "url(#clip)")
+      .attr("x", (d: any) => {
+        return this.x(new Date(d.DATA_DATE)) - barWidth * 0.5;
+      })
+      .attr("width", barWidth)
+      .attr("height", (d: any) => {
+        return canvasHeight - this.y(d.VALUE_NUMERIC);
+      })
+      .attr("y", (d: any) => {
+        return this.y(d.VALUE_NUMERIC);
+      })
+      .style("fill", "#74B1A1")
+      .style("stroke-width", "1px")
+      .on("click", changeColor);
 
-    svg.call(zoom);
+    svg
+      .call(zoom)
+      .call(zoom.transform, () =>
+        d3.zoomIdentity.translate(50, 0).scale(this.SCALE)
+      );
   }
 }
